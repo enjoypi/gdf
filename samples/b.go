@@ -8,18 +8,19 @@ import (
 )
 
 const (
-	Bit0  = 1
-	Bit1  = 1 << 1
-	Bit2  = 1 << 2
-	Bit3  = 1 << 3
-	Bit4  = 1 << 4
-	Bit5  = 1 << 5
-	Bit6  = 1 << 6
-	Bit7  = 1 << 7
-	Bit8  = 1 << 8
-	Bit9  = 1 << 9
-	Bit10 = 1 << 10
-	Bit11 = 1 << 11
+	BitAll = 0xFFFFFFFF
+	Bit0   = 1
+	Bit1   = 1 << 1
+	Bit2   = 1 << 2
+	Bit3   = 1 << 3
+	Bit4   = 1 << 4
+	Bit5   = 1 << 5
+	Bit6   = 1 << 6
+	Bit7   = 1 << 7
+	Bit8   = 1 << 8
+	Bit9   = 1 << 9
+	Bit10  = 1 << 10
+	Bit11  = 1 << 11
 )
 
 var (
@@ -34,11 +35,28 @@ func readBinary(r io.Reader, data interface{}) error {
 	return binary.Read(r, binary.LittleEndian, data)
 }
 
+type MarkDirty func()
+
 type B struct {
 	i int64
 	s string
 
 	dirtyFlags uint32
+	MarkDirty
+}
+
+func (b *B) SetMark(mark MarkDirty) {
+	b.MarkDirty = mark
+}
+
+func (b *B) MarkParent() {
+	if b.MarkDirty != nil {
+		b.MarkDirty()
+	}
+}
+
+func (b *B) MarkAll() {
+	b.dirtyFlags &= BitAll
 }
 
 func (b *B) I() int64 {
@@ -47,7 +65,8 @@ func (b *B) I() int64 {
 
 func (b *B) SetI(i int64) {
 	b.i = i
-	b.dirtyFlags = b.dirtyFlags | Bit0
+	b.dirtyFlags |= Bit0
+	b.MarkParent()
 }
 
 func (b *B) S() string {
@@ -56,7 +75,8 @@ func (b *B) S() string {
 
 func (b *B) SetS(s string) {
 	b.s = s
-	b.dirtyFlags = b.dirtyFlags | Bit1
+	b.dirtyFlags |= Bit1
+	b.MarkParent()
 }
 
 func (b *B) Dirty(buf *bytes.Buffer) error {

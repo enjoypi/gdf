@@ -2,34 +2,29 @@ package samples
 
 import (
 	"bytes"
+	"fmt"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 )
 
 var _ = Describe("Structs", func() {
-	var (
-		b B
-		//d D
-	)
+	var ()
 
 	BeforeEach(func() {
-		b = B{
-			i: 1,
-			s: "s",
-		}
 
-		//d = D{
-		//	i2: 2,
-		//	s2: "s2",
-		//}
 	})
 
 	Describe("Categorizing book length", func() {
 		Context("With more than 300 pages", func() {
 			It("should be a novel", func() {
+				b := B{
+					i: 1,
+					s: "s",
+				}
 				// default
 				Expect(b.I()).To(Equal(int64(1)))
+				Expect(b.S()).To(Equal("s"))
 				var buf bytes.Buffer
 				err := b.Dirty(&buf)
 				Expect(buf.Bytes()).To(BeEmpty())
@@ -71,8 +66,35 @@ var _ = Describe("Structs", func() {
 			})
 		})
 
-		Context("With fewer than 300 pages", func() {
-			It("should be a short story", func() {
+		Context("Nesting struct", func() {
+			It("Nesting struct", func() {
+				d := D{
+					b:  B{i: 1, s: "s"},
+					i2: 2,
+					s2: "s2",
+				}
+				d.Init()
+				// default
+				Expect(d.B().I()).To(Equal(int64(1)))
+				Expect(d.B().S()).To(Equal("s"))
+				Expect(d.I2()).To(Equal(int64(2)))
+				Expect(d.S2()).To(Equal("s2"))
+
+				var buf bytes.Buffer
+				err := d.Dirty(&buf)
+				Expect(buf.Bytes()).To(BeEmpty())
+				Expect(err).To(MatchError(ErrNoDirtyData))
+
+				// change child
+				buf.Reset()
+				b := d.B()
+				b.SetI(11)
+				fmt.Println("change child", d)
+				err = d.Dirty(&buf)
+				Expect(err).To(BeNil())
+
+				var d2 D
+				Expect(d2.MergeFrom(buf.Bytes())).To(BeNil())
 				//Expect(d.B().S()).To(Equal("s"))
 			})
 		})

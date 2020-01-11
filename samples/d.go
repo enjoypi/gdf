@@ -6,14 +6,47 @@ import (
 
 type D struct {
 	b  B
-	i2 int
 	s2 string
+	i2 int64
 
 	dirtyFlags uint32
+	MarkDirty
+}
+
+func (d *D) Init() {
+	d.b.SetMark(d.MarkB)
 }
 
 func (d *D) B() *B {
 	return &d.b
+}
+
+func (d *D) SetB(b *B) {
+	d.b = *b
+	b.MarkAll()
+	d.MarkB()
+}
+
+func (d *D) MarkB() {
+	d.dirtyFlags |= Bit0
+}
+
+func (d *D) S2() string {
+	return d.s2
+}
+
+func (d *D) SetS2(s2 string) {
+	d.s2 = s2
+	d.dirtyFlags |= Bit1
+}
+
+func (d *D) I2() int64 {
+	return d.i2
+}
+
+func (d *D) SetI2(i2 int64) {
+	d.i2 = i2
+	d.dirtyFlags |= Bit2
 }
 
 func (d *D) Dirty(buf *bytes.Buffer) error {
@@ -36,6 +69,12 @@ func (d *D) Dirty(buf *bytes.Buffer) error {
 			return err
 		}
 		if err := buf.WriteByte(0); err != nil {
+			return err
+		}
+	}
+
+	if d.dirtyFlags&Bit2 != 0 {
+		if err := writeBinary(buf, d.i2); err != nil {
 			return err
 		}
 	}
@@ -68,6 +107,12 @@ func (d *D) MergeFrom(diff []byte) error {
 			return err
 		}
 		d.s2 = string(by[:len(by)-1])
+	}
+
+	if dirtyFlags&Bit2 != 0 {
+		if err := readBinary(&buf, &d.i2); err != nil {
+			return err
+		}
 	}
 
 	return nil
