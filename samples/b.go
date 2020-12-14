@@ -9,16 +9,16 @@ import (
 
 const (
 	BitAll = 0xFFFFFFFF
-	Bit0   = 1
-	Bit1   = 1 << 1
-	Bit2   = 1 << 2
-	Bit3   = 1 << 3
-	Bit4   = 1 << 4
-	Bit5   = 1 << 5
-	Bit6   = 1 << 6
-	Bit7   = 1 << 7
-	Bit8   = 1 << 8
-	Bit9   = 1 << 9
+	Bit00  = 1
+	Bit01  = 1 << 1
+	Bit02  = 1 << 2
+	Bit03  = 1 << 3
+	Bit04  = 1 << 4
+	Bit05  = 1 << 5
+	Bit06  = 1 << 6
+	Bit07  = 1 << 7
+	Bit08  = 1 << 8
+	Bit09  = 1 << 9
 	Bit10  = 1 << 10
 	Bit11  = 1 << 11
 )
@@ -38,10 +38,14 @@ func readBinary(r io.Reader, data interface{}) error {
 type MarkDirty func()
 
 type B struct {
-	i int64
-	s string
+	i     int64
+	str     string
+	m     map[string]string
+	slice []string
 
 	dirtyFlags uint32
+
+	dirtyM map[string]bool		// true表示删除，false表示变更
 	MarkDirty
 }
 
@@ -65,18 +69,32 @@ func (b *B) I() int64 {
 
 func (b *B) SetI(i int64) {
 	b.i = i
-	b.dirtyFlags |= Bit0
+	b.dirtyFlags |= Bit00
 	b.MarkParent()
 }
 
 func (b *B) S() string {
-	return b.s
+	return b.str
 }
 
 func (b *B) SetS(s string) {
-	b.s = s
-	b.dirtyFlags |= Bit1
+	b.str = s
+	b.dirtyFlags |= Bit01
 	b.MarkParent()
+}
+
+func (b *B) LoadFromM(key string) (string, bool) {
+	value, ok := b.m[key]
+	return value, ok
+}
+
+func (b *B) StoreIntoM(key, value string) {
+	b.m[key] = value
+	b.dirtyFlags |= Bit02
+}
+
+func (b *B) Slice() []string {
+	return b.slice
 }
 
 func (b *B) Dirty(buf *bytes.Buffer) error {
@@ -88,14 +106,14 @@ func (b *B) Dirty(buf *bytes.Buffer) error {
 		return err
 	}
 
-	if b.dirtyFlags&Bit0 != 0 {
+	if b.dirtyFlags&Bit00 != 0 {
 		if err := writeBinary(buf, b.i); err != nil {
 			return err
 		}
 	}
 
-	if b.dirtyFlags&Bit1 != 0 {
-		if _, err := buf.WriteString(b.s); err != nil {
+	if b.dirtyFlags&Bit01 != 0 {
+		if _, err := buf.WriteString(b.str); err != nil {
 			return err
 		}
 		if err := buf.WriteByte(0); err != nil {
@@ -119,7 +137,7 @@ func (b *B) MergeFrom(diff []byte) error {
 		return err
 	}
 
-	if dirtyFlags&Bit0 != 0 {
+	if dirtyFlags&Bit00 != 0 {
 		i := b.i
 		if err := readBinary(&buf, &b.i); err != nil {
 			b.i = i
@@ -127,12 +145,12 @@ func (b *B) MergeFrom(diff []byte) error {
 		}
 	}
 
-	if dirtyFlags&Bit1 != 0 {
+	if dirtyFlags&Bit01 != 0 {
 		by, err := buf.ReadBytes(0)
 		if err != nil {
 			return err
 		}
-		b.s = string(by[:len(by)-1])
+		b.str = string(by[:len(by)-1])
 	}
 
 	return nil
